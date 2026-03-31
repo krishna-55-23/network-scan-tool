@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan History | NetScan Pro</title>
+{% load static %}
+<link rel="stylesheet" href="{% static 'scanner/css/main.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{% url 'scanner:index' %}" class="nav-logo">
+    <div class="logo-icon">N</div>
+    <span class="logo-text">NetScan<span class="accent">Pro</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="{% url 'scanner:index' %}" class="nav-link">Scanner</a>
+    <a href="{% url 'scanner:history' %}" class="nav-link active">History</a>
+    <a href="/admin/" class="nav-link">Admin</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-top">
+    <h1 class="page-h1">Scan <span style="color:var(--green)">History</span></h1>
+    <p class="page-h-sub">All previous network scan records</p>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="input-box" style="max-width:280px;flex:1">
+      <span class="input-prefix">⊹</span>
+      <input type="text" class="text-input" id="searchInput"
+             placeholder="Filter by target..." oninput="filterTable()">
+    </div>
+    <div class="chip-group">
+      <span class="chip active" onclick="filterStatus(this,'all')">All</span>
+      <span class="chip" onclick="filterStatus(this,'completed')">Completed</span>
+      <span class="chip" onclick="filterStatus(this,'failed')">Failed</span>
+      <span class="chip" onclick="filterStatus(this,'running')">Running</span>
+    </div>
+  </div>
+
+  {% if scans %}
+  <div class="scanner-card" style="padding:0">
+    <div class="h-table-wrap">
+      <table class="h-table" id="histTable">
+        <thead>
+          <tr>
+            <th>Target</th>
+            <th>Port Range</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Open</th>
+            <th>Scanned</th>
+            <th>Duration</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in scans %}
+          <tr data-status="{{ scan.status }}" data-target="{{ scan.target|lower }}">
+            <td style="font-weight:600">{{ scan.target }}</td>
+            <td class="mono">{{ scan.port_range }}</td>
+            <td class="mono">{{ scan.scan_type|upper }}</td>
+            <td><span class="badge badge-{{ scan.status }}">{{ scan.status }}</span></td>
+            <td class="mono green">{% if scan.status == 'completed' %}{{ scan.open_ports_count }}{% else %}—{% endif %}</td>
+            <td class="mono">{{ scan.total_ports_scanned }}</td>
+            <td class="mono">{% if scan.duration_seconds %}{{ scan.duration_seconds|floatformat:1 }}s{% else %}—{% endif %}</td>
+            <td class="mono" style="white-space:nowrap">{{ scan.created_at|date:"M d, H:i" }}</td>
+            <td style="white-space:nowrap">
+              {% if scan.status == 'completed' %}
+              <a href="{% url 'scanner:scan_result' scan.id %}" class="action-link">View</a>
+              <a href="{% url 'reports:export_csv' scan.id %}" class="action-link">CSV</a>
+              <a href="{% url 'reports:export_pdf' scan.id %}" class="action-link">PDF</a>
+              {% endif %}
+              <button class="action-link action-delete" onclick="deleteScan({{ scan.id }}, this)">Del</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">◌</div>
+    <div class="empty-text">No scans yet. <a href="{% url 'scanner:index' %}">Run your first scan →</a></div>
+  </div>
+  {% endif %}
+</div>
+
+<footer class="footer">
+  <span>NetScan Pro</span><span>For authorized security testing only</span>
+</footer>
+
+<script>
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('#histTable tbody tr').forEach(row => {
+    row.style.display = (row.dataset.target || '').includes(q) ? '' : 'none';
+  });
+}
+let activeStatus = 'all';
+function filterStatus(el, status) {
+  activeStatus = status;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('#histTable tbody tr').forEach(row => {
+    row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+  });
+}
+function deleteScan(id, btn) {
+  if (!confirm('Delete this scan?')) return;
+  fetch(`/scan/${id}/delete/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+  }).then(r => r.json()).then(d => { if (d.success) btn.closest('tr').remove(); });
+}
+function getCookie(name) {
+  const m = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return m ? m[2] : null;
+}
+</script>
+</body>
+</html>

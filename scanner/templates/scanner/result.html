@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ job.target }} — Scan Result | NetScan Pro</title>
+{% load static %}
+<link rel="stylesheet" href="{% static 'scanner/css/main.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="{% url 'scanner:index' %}" class="nav-logo">
+    <div class="logo-icon">N</div>
+    <span class="logo-text">NetScan<span class="accent">Pro</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="{% url 'scanner:index' %}" class="nav-link">Scanner</a>
+    <a href="{% url 'scanner:history' %}" class="nav-link active">History</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-top">
+    <a href="{% url 'scanner:history' %}" class="back-link">← Back to History</a>
+    <h1 class="page-h1">
+      <span class="mono">{{ job.target }}</span>
+      &nbsp;<span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+    </h1>
+    <p class="page-h-sub">Scanned {{ job.created_at|date:"F j, Y at H:i" }}</p>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-strip">
+    <div class="meta-item"><div class="meta-lbl">Port Range</div><div class="meta-val mono">{{ job.port_range }}</div></div>
+    <div class="meta-item"><div class="meta-lbl">Open Ports</div><div class="meta-val green">{{ job.open_ports_count }}</div></div>
+    <div class="meta-item"><div class="meta-lbl">Ports Scanned</div><div class="meta-val mono">{{ job.total_ports_scanned }}</div></div>
+    <div class="meta-item"><div class="meta-lbl">Duration</div><div class="meta-val mono">{{ job.duration_seconds|floatformat:2 }}s</div></div>
+    <div class="meta-item"><div class="meta-lbl">Scan Type</div><div class="meta-val mono">{{ job.scan_type|upper }}</div></div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-row">
+    <a href="{% url 'reports:export_csv' job.id %}" class="export-btn">↓ Export CSV</a>
+    <a href="{% url 'reports:export_pdf' job.id %}" class="export-btn">↓ Export PDF</a>
+  </div>
+
+  <!-- Results -->
+  <div class="scanner-card">
+    <div class="card-header">
+      <span class="card-title">Open Ports</span>
+      <span class="card-tag">{{ open_ports|length }} found</span>
+    </div>
+
+    {% if open_ports %}
+    <div class="ports-list">
+      {% for port in open_ports %}
+      <div class="port-row">
+        <div class="port-row-top">
+          <span class="port-num">{{ port.port }}</span>
+          <span class="port-proto">{{ port.protocol|upper }}</span>
+          <span class="port-icon-badge">{{ port.get_service_icon }}</span>
+          <div class="port-info">
+            <div class="port-svc">{{ port.service|default:"Unknown" }}</div>
+            {% if port.service_version %}<div class="port-ver">{{ port.service_version }}</div>{% endif %}
+          </div>
+          {% if port.response_time_ms %}<span class="port-ms">{{ port.response_time_ms|floatformat:1 }} ms</span>{% endif %}
+          {% if port.banner %}<button class="port-banner-toggle" onclick="toggleBanner(this)">banner</button>{% endif %}
+        </div>
+        {% if port.banner %}<pre class="port-banner-box">{{ port.banner|truncatechars:300 }}</pre>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-ports" style="padding:2.5rem">No open ports were found in this scan.</div>
+    {% endif %}
+  </div>
+</div>
+
+<footer class="footer">
+  <span>NetScan Pro</span><span>For authorized security testing only</span>
+</footer>
+
+<script>
+function toggleBanner(btn) {
+  const box = btn.closest('.port-row').querySelector('.port-banner-box');
+  if (!box) return;
+  const open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? 'banner' : 'hide';
+}
+</script>
+</body>
+</html>

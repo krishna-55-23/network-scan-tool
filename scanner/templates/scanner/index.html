@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetScan Pro — Network Scanner</title>
+{% load static %}
+<link rel="stylesheet" href="{% static 'scanner/css/main.css' %}">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="{% url 'scanner:index' %}" class="nav-logo">
+    <div class="logo-icon">N</div>
+    <span class="logo-text">NetScan<span class="accent">Pro</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="{% url 'scanner:index' %}" class="nav-link active">Scanner</a>
+    <a href="{% url 'scanner:history' %}" class="nav-link">History</a>
+    <a href="/admin/" class="nav-link">Admin</a>
+  </div>
+  <div class="nav-badge">
+    <span class="badge-dot {% if nmap_available %}online{% endif %}"></span>
+    nmap {% if nmap_available %}active{% else %}not found{% endif %}
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <!-- HERO -->
+  <div class="page-header">
+    <div class="page-eyebrow">
+      <span class="eyebrow-line"></span>
+      Network Intelligence Platform
+      <span class="eyebrow-line"></span>
+    </div>
+    <h1 class="page-title">
+      Scan. Detect.<br><span class="highlight">Report.</span>
+    </h1>
+    <p class="page-subtitle">
+      Port scanning, service fingerprinting, banner grabbing and PDF reports — all in one place.
+    </p>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.total_scans }}</span>
+        <span class="stat-label">Total Scans</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.completed }}</span>
+        <span class="stat-label">Completed</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ stats.total_open_ports }}</span>
+        <span class="stat-label">Ports Found</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN CARD -->
+  <div class="scanner-card">
+    <div class="card-header">
+      <span class="card-title">New Scan</span>
+      <span class="card-tag">// TCP Scanner</span>
+    </div>
+
+    <div class="form-body" id="scanForm">
+
+      <!-- Target -->
+      <div class="field">
+        <label class="field-label">Target Host</label>
+        <div class="target-row">
+          <div class="field grow">
+            <div class="input-box">
+              <span class="input-prefix">$</span>
+              <input type="text" id="targetInput" class="text-input"
+                     placeholder="192.168.1.1 or example.com"
+                     autocomplete="off" spellcheck="false">
+              <button class="resolve-btn" onclick="resolveTarget()" title="Validate target">↻</button>
+            </div>
+            <div class="resolve-hint" id="resolveHint"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Port Range + Engine side by side -->
+      <div class="two-col">
+
+        <!-- Port Range -->
+        <div class="field">
+          <label class="field-label">Port Range</label>
+          <div class="chip-group">
+            <span class="chip active" onclick="setPreset(this,'1-1024')">Common  1–1024</span>
+            <span class="chip" onclick="setPreset(this,'1-65535')">Full  1–65535</span>
+            <span class="chip" onclick="setPreset(this,'80,443,22,21,25,53,3306,8080,8443')">Top Services</span>
+            <span class="chip" onclick="setPreset(this,'custom')">Custom…</span>
+          </div>
+          <div class="custom-port-box" id="customPortBox">
+            <div class="input-box">
+              <span class="input-prefix">:</span>
+              <input type="text" id="portInput" class="text-input"
+                     placeholder="22,80,443 or 1-1024,8080-8090" value="1-1024">
+            </div>
+          </div>
+          <input type="hidden" id="portRangeValue" value="1-1024">
+        </div>
+
+        <!-- Scan Engine -->
+        <div class="field">
+          <label class="field-label">Scan Engine</label>
+          <div class="engine-grid">
+            <label class="engine-opt">
+              <input type="radio" name="scanType" value="tcp" checked>
+              <span class="engine-label">
+                <span class="engine-icon">⬡</span>
+                <span class="engine-info">
+                  <span class="engine-name">TCP Connect</span>
+                  <span class="engine-desc">Reliable, all systems</span>
+                </span>
+              </span>
+            </label>
+            <label class="engine-opt">
+              <input type="radio" name="scanType" value="fast">
+              <span class="engine-label">
+                <span class="engine-icon">⚡</span>
+                <span class="engine-info">
+                  <span class="engine-name">Fast Scan</span>
+                  <span class="engine-desc">Top 100 ports only</span>
+                </span>
+              </span>
+            </label>
+            <label class="engine-opt">
+              <input type="radio" name="scanType" value="service">
+              <span class="engine-label">
+                <span class="engine-icon">◎</span>
+                <span class="engine-info">
+                  <span class="engine-name">Service Detection</span>
+                  <span class="engine-desc">Deep fingerprinting</span>
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+      </div><!-- end two-col -->
+
+      <!-- Button -->
+      <button class="scan-btn" id="scanBtn" onclick="startScan()">
+        ▶ &nbsp;Initiate Scan
+      </button>
+
+    </div><!-- end form-body -->
+
+    <!-- Progress (hidden) -->
+    <div class="progress-wrap" id="progressPanel">
+      <div class="progress-top">
+        <span class="progress-label" id="progressLabel">Scanning...</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-bottom">
+        <span class="progress-meta" id="progressMeta">Initializing...</span>
+        <button class="cancel-btn" onclick="cancelScan()">✕ Cancel</button>
+      </div>
+    </div>
+
+  </div><!-- end scanner-card -->
+
+  <!-- RESULTS -->
+  <div class="results-card" id="resultsPanel">
+    <div class="results-header">
+      <span class="results-meta" id="resultsMeta">Loading results...</span>
+      <div class="results-actions" id="resultsActions"></div>
+    </div>
+    <div class="ports-list" id="portsList"></div>
+  </div>
+
+  <!-- TOOLSET -->
+  <div class="section-head" style="margin-top:2rem">
+    <div class="section-title">
+      <span class="section-dot"></span>
+      Integrated Toolset
+    </div>
+  </div>
+  <div class="tools-strip">
+    <div class="tool-tile">
+      <div class="tile-icon green">⬡</div>
+      <div class="tile-name">Port Scanner</div>
+      <div class="tile-desc">Multi-threaded TCP scanning with configurable timeout and thread count.</div>
+      <span class="tile-badge">socket</span>
+    </div>
+    <div class="tool-tile">
+      <div class="tile-icon cyan">◎</div>
+      <div class="tile-name">Service Detection</div>
+      <div class="tile-desc">Fingerprints HTTP, SSH, FTP, SMTP, DNS, MySQL, RDP and 15+ more.</div>
+      <span class="tile-badge">fingerprint</span>
+    </div>
+    <div class="tool-tile">
+      <div class="tile-icon purple">⊹</div>
+      <div class="tile-name">Banner Grabbing</div>
+      <div class="tile-desc">Extracts service banners and version strings from open ports.</div>
+      <span class="tile-badge">netcat-like</span>
+    </div>
+    <div class="tool-tile">
+      <div class="tile-icon yellow">⊞</div>
+      <div class="tile-name">nmap Engine</div>
+      <div class="tile-desc">Optional nmap integration for OS detection and script-based scanning.</div>
+      <span class="tile-badge">nmap</span>
+    </div>
+    <div class="tool-tile">
+      <div class="tile-icon red">▤</div>
+      <div class="tile-name">Report Export</div>
+      <div class="tile-desc">Download full scan reports as formatted PDF or CSV with banner data.</div>
+      <span class="tile-badge">pdf / csv</span>
+    </div>
+    <div class="tool-tile">
+      <div class="tile-icon blue">↻</div>
+      <div class="tile-name">Scan History</div>
+      <div class="tile-desc">Persistent history of all scans stored in a searchable database.</div>
+      <span class="tile-badge">sqlite</span>
+    </div>
+  </div>
+
+  <!-- RECENT SCANS -->
+  {% if recent_scans %}
+  <div class="section-head">
+    <div class="section-title">
+      <span class="section-dot"></span>
+      Recent Scans
+    </div>
+    <a href="{% url 'scanner:history' %}" class="section-link">View all →</a>
+  </div>
+  <div class="history-list">
+    {% for scan in recent_scans %}
+    <div class="h-row">
+      <span class="h-target">{{ scan.target }}</span>
+      <span class="h-range">{{ scan.port_range }}</span>
+      <span class="badge badge-{{ scan.status }}">{{ scan.status }}</span>
+      <span class="h-open">
+        {% if scan.status == 'completed' %}{{ scan.open_ports_count }} open{% else %}—{% endif %}
+      </span>
+      <span class="h-date">{{ scan.created_at|date:"M d, H:i" }}</span>
+      <div class="h-actions">
+        {% if scan.status == 'completed' %}
+        <a href="{% url 'scanner:scan_result' scan.id %}" class="action-link">View</a>
+        <a href="{% url 'reports:export_csv' scan.id %}" class="action-link">CSV</a>
+        <a href="{% url 'reports:export_pdf' scan.id %}" class="action-link">PDF</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div><!-- end page-wrap -->
+
+<footer class="footer">
+  <span>NetScan Pro</span>
+  <span>For authorized security testing only</span>
+  <span>Built with Django + Python</span>
+</footer>
+
+<script src="{% static 'scanner/js/app.js' %}"></script>
+</body>
+</html>
